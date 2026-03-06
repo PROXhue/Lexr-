@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>IngredientLens</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #06080f;
+    --surface: #0d1120;
+    --border: #1c2440;
+    --accent: #4f8ef7;
+    --accent2: #7c5ff5;
+    --warn: #f7834f;
+    --green: #3dd68c;
+    --text: #dde4f5;
+    --muted: #4a5580;
+  }
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+/* ── START SCREEN ── */
+#start-screen {
+position: fixed; inset: 0; z-index: 80;
+display: flex; flex-direction: column;
+align-items: center; justify-content: center;
+background: var(–bg);
+gap: 18px; padding: 40px; text-align: center;
+}
+.start-icon {
+width: 84px; height: 84px; border-radius: 22px;
+background: linear-gradient(135deg, rgba(79,142,247,0.12), rgba(124,95,245,0.12));
+border: 1.5px solid rgba(79,142,247,0.4);
+display: flex; align-items: center; justify-content: center;
+font-size: 38px;
+box-shadow: 0 0 40px rgba(79,142,247,0.15);
+}
+#start-screen h1 {
+font-family: ‘Space Mono’, monospace;
+font-size: 20px; color: var(–text); letter-spacing: 1px; line-height: 1.4;
+}
+#start-screen h1 span { color: var(–accent); }
+#start-screen p { font-size: 13px; color: var(–muted); line-height: 1.7; max-width: 280px; }
+
+.mode-cards { display: flex; gap: 10px; width: 100%; max-width: 320px; }
+.mode-card {
+flex: 1; padding: 14px 10px;
+background: var(–surface);
+border: 1.5px solid var(–border);
+border-radius: 14px; text-align: center; cursor: pointer;
+transition: border-color 0.2s, background 0.2s;
+}
+.mode-card.selected { border-color: var(–accent); background: rgba(79,142,247,0.07); }
+.mode-card .mc-icon { font-size: 24px; margin-bottom: 6px; }
+.mode-card .mc-label { font-size: 11px; font-family: ‘Space Mono’, monospace; color: var(–muted); letter-spacing: 1px; }
+.mode-card.selected .mc-label { color: var(–accent); }
+
+#start-btn {
+margin-top: 6px; padding: 15px 44px;
+background: linear-gradient(135deg, var(–accent), var(–accent2));
+color: #fff; border: none; border-radius: 50px;
+font-family: ‘Space Mono’, monospace;
+font-size: 12px; font-weight: 700; letter-spacing: 2px;
+cursor: pointer;
+box-shadow: 0 4px 20px rgba(79,142,247,0.3);
+transition: transform 0.15s;
+}
+#start-btn:active { transform: scale(0.96); }
+
+/* ── CAMERA ── */
+#cam-wrap { position: fixed; inset: 0; }
+#video { width: 100%; height: 100%; object-fit: cover; display: block; }
+#canvas { display: none; }
+#flash {
+position: fixed; inset: 0; z-index: 5;
+background: white; opacity: 0; pointer-events: none;
+}
+#flash.flash { animation: do-flash 0.3s ease-out; }
+@keyframes do-flash { 0%{opacity:0.35} 100%{opacity:0} }
+
+/* ── HEADER ── */
+#header {
+position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+display: flex; align-items: center; justify-content: space-between;
+padding: 14px 20px;
+background: linear-gradient(to bottom, rgba(6,8,15,0.95), transparent);
+}
+#logo { font-family: ‘Space Mono’, monospace; font-size: 13px; font-weight: 700; letter-spacing: 1.5px; color: var(–accent); }
+#mode-badge {
+font-family: ‘Space Mono’, monospace; font-size: 9px; letter-spacing: 1px;
+color: var(–muted); background: rgba(13,17,32,0.8);
+border: 1px solid var(–border); border-radius: 20px; padding: 4px 12px;
+cursor: pointer;
+}
+#status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(–muted); transition: background 0.3s; }
+#status-dot.active { background: var(–green); box-shadow: 0 0 8px var(–green); animation: pulse-dot 2s infinite; }
+#status-dot.loading { background: var(–accent); animation: pulse-dot 0.5s infinite; }
+#status-dot.error { background: var(–warn); }
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* ── OVERLAYS ── */
+#scan-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 10; opacity: 0; transition: opacity 0.3s; }
+#scan-overlay.visible { opacity: 1; }
+.corner { position: absolute; width: 32px; height: 32px; border-color: var(–accent); border-style: solid; opacity: 0.8; }
+.corner.tl { top: 20%; left: 6%; border-width: 2px 0 0 2px; }
+.corner.tr { top: 20%; right: 6%; border-width: 2px 2px 0 0; }
+.corner.bl { bottom: 38%; left: 6%; border-width: 0 0 2px 2px; }
+.corner.br { bottom: 38%; right: 6%; border-width: 0 2px 2px 0; }
+#scan-line {
+position: absolute; left: 6%; right: 6%; top: 20%;
+height: 1.5px;
+background: linear-gradient(90deg, transparent, rgba(79,142,247,0.4), var(–accent), rgba(79,142,247,0.4), transparent);
+box-shadow: 0 0 10px var(–accent);
+animation: scan-sweep 2.5s linear infinite;
+}
+@keyframes scan-sweep { 0%{top:20%;opacity:1} 90%{opacity:1} 100%{top:62%;opacity:0} }
+
+#receipt-overlay {
+position: fixed; inset: 8px; pointer-events: none; z-index: 10;
+border: 1.5px solid rgba(79,142,247,0.3); border-radius: 12px;
+opacity: 0; transition: opacity 0.3s;
+}
+#receipt-overlay.visible { opacity: 1; }
+#receipt-overlay::before {
+content: ‘INVOICE MODE’;
+position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+font-family: ‘Space Mono’, monospace; font-size: 9px; letter-spacing: 3px;
+color: var(–accent); background: rgba(6,8,15,0.75);
+padding: 4px 14px; border-radius: 20px;
+}
+
+/* ── LOADING ── */
+#loading-wrap {
+position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+z-index: 25; display: flex; flex-direction: column; align-items: center; gap: 12px;
+opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+#loading-wrap.visible { opacity: 1; }
+#loading-wrap svg { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#loading-text { font-family: ‘Space Mono’, monospace; font-size: 10px; color: var(–muted); letter-spacing: 2px; }
+
+#hint {
+position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+font-family: ‘Space Mono’, monospace; font-size: 10px;
+color: var(–muted); letter-spacing: 2px; text-align: center;
+opacity: 0; pointer-events: none; transition: opacity 0.3s; white-space: nowrap;
+}
+#hint.visible { opacity: 1; }
+
+/* ── ERROR TOAST ── */
+#error-toast {
+position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+z-index: 60; background: rgba(247,131,79,0.15);
+border: 1px solid rgba(247,131,79,0.4); border-radius: 10px;
+padding: 10px 16px; font-family: ‘Space Mono’, monospace;
+font-size: 10px; color: var(–warn); letter-spacing: 1px;
+text-align: center; max-width: 300px;
+opacity: 0; transition: opacity 0.3s; pointer-events: none;
+}
+#error-toast.visible { opacity: 1; }
+
+/* ── SCAN BUTTON ── */
+#scan-btn {
+position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+z-index: 40; display: none;
+width: 72px; height: 72px; border-radius: 50%;
+background: linear-gradient(135deg, var(–accent), var(–accent2));
+border: 3px solid rgba(255,255,255,0.15);
+box-shadow: 0 4px 30px rgba(79,142,247,0.5);
+align-items: center; justify-content: center;
+cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+}
+#scan-btn:active { transform: translateX(-50%) scale(0.92); box-shadow: 0 2px 14px rgba(79,142,247,0.3); }
+#scan-btn svg { width: 30px; height: 30px; }
+#scan-btn.scanning {
+background: rgba(79,142,247,0.15);
+border-color: rgba(79,142,247,0.4);
+box-shadow: 0 0 0 8px rgba(79,142,247,0.1);
+animation: btn-pulse 1s ease-in-out infinite;
+}
+@keyframes btn-pulse { 0%,100%{box-shadow:0 0 0 8px rgba(79,142,247,0.1)} 50%{box-shadow:0 0 0 16px rgba(79,142,247,0.05)} }
+
+/* push results panel up above the button */
+#results-panel { padding-bottom: 100px; }
+#results-panel {
+position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+max-height: 55vh; display: flex; flex-direction: column;
+background: linear-gradient(to top, rgba(6,8,15,0.98) 75%, transparent);
+padding: 20px 18px 34px;
+transform: translateY(100%);
+transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#results-panel.visible { transform: translateY(0); }
+
+#results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+#results-label { font-family: ‘Space Mono’, monospace; font-size: 10px; letter-spacing: 3px; color: var(–muted); text-transform: uppercase; }
+#drug-count {
+font-family: ‘Space Mono’, monospace; font-size: 10px; color: var(–accent);
+background: rgba(79,142,247,0.12); border: 1px solid rgba(79,142,247,0.2);
+border-radius: 10px; padding: 2px 10px;
+}
+
+#ingredients-list {
+overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px; padding-right: 2px;
+}
+#ingredients-list::-webkit-scrollbar { width: 3px; }
+#ingredients-list::-webkit-scrollbar-thumb { background: var(–border); border-radius: 2px; }
+
+/* Drug group (invoice) */
+.drug-group {
+background: rgba(13,17,32,0.9); border: 1px solid var(–border);
+border-radius: 12px; overflow: hidden;
+animation: card-in 0.35s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes card-in { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+.drug-header {
+display: flex; align-items: center; justify-content: space-between;
+padding: 10px 14px; background: rgba(79,142,247,0.06);
+border-bottom: 1px solid var(–border);
+}
+.drug-name { font-family: ‘Space Mono’, monospace; font-size: 11px; color: var(–accent); font-weight: 700; }
+.drug-price { font-family: ‘Space Mono’, monospace; font-size: 11px; color: var(–muted); }
+.drug-ingredients { padding: 8px 14px 10px; display: flex; flex-direction: column; gap: 6px; }
+.active-ing { display: flex; align-items: flex-start; gap: 8px; }
+.ing-dot { width: 6px; height: 6px; border-radius: 50%; background: var(–green); margin-top: 5px; flex-shrink: 0; }
+.ing-dot.warn { background: var(–warn); }
+.ing-text { flex: 1; }
+.ing-name-text { font-size: 13px; color: var(–text); font-weight: 600; }
+.ing-desc { font-size: 11px; color: var(–muted); margin-top: 1px; line-height: 1.4; }
+.ing-dose { font-family: ‘Space Mono’, monospace; font-size: 10px; color: rgba(79,142,247,0.7); margin-top: 2px; }
+
+/* Label card */
+.ingredient-card {
+background: rgba(13,17,32,0.9); border: 1px solid var(–border);
+border-left: 3px solid var(–green); border-radius: 10px; padding: 10px 14px;
+animation: card-in 0.35s cubic-bezier(0.16,1,0.3,1) both;
+}
+.ingredient-card.warn { border-left-color: var(–warn); }
+.ing-name-l { font-family: ‘Space Mono’, monospace; font-size: 13px; color: var(–green); font-weight: 700; }
+.ingredient-card.warn .ing-name-l { color: var(–warn); }
+.ing-detail-l { font-size: 12px; color: #7a90c0; margin-top: 3px; line-height: 1.5; }
+.ing-amount-l { font-family: ‘Space Mono’, monospace; font-size: 11px; color: var(–muted); margin-top: 4px; }
+</style>
+
+</head>
+<body>
+
+<!-- KEY SETUP SCREEN -->
+
+<div id="key-screen" style="display:none; position:fixed; inset:0; z-index:90; background:var(--bg); flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:40px; text-align:center;">
+  <div style="width:72px;height:72px;border-radius:18px;background:rgba(79,142,247,0.1);border:1.5px solid rgba(79,142,247,0.4);display:flex;align-items:center;justify-content:center;font-size:32px;">🔑</div>
+  <div style="font-family:'Space Mono',monospace;font-size:18px;color:var(--text);letter-spacing:1px;">API KEY SETUP</div>
+  <div style="font-size:13px;color:var(--muted);line-height:1.7;max-width:280px;">Enter your Gemini API key. It's saved <strong style="color:var(--text)">only on this device</strong> — never sent to GitHub or anywhere else.</div>
+  <input id="key-input" type="password" placeholder="AIzaSy..."
+    style="width:100%;max-width:320px;padding:14px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;color:var(--text);font-family:'Space Mono',monospace;font-size:13px;outline:none;letter-spacing:1px;"
+    oninput="document.getElementById('key-input').style.borderColor='var(--border)'"
+  />
+  <button onclick="saveKey()"
+    style="padding:14px 40px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:50px;font-family:'Space Mono',monospace;font-size:12px;font-weight:700;letter-spacing:2px;cursor:pointer;">
+    SAVE & CONTINUE
+  </button>
+  <div style="font-size:11px;color:var(--muted);">Get a free key at <span style="color:var(--accent)">aistudio.google.com</span></div>
+</div>
+
+<!-- START SCREEN -->
+
+<div id="start-screen">
+  <div class="start-icon">🔬</div>
+  <h1>Ingredient<span>Lens</span></h1>
+  <p>Live camera scanner — point at a drug label or pharmacy invoice to instantly reveal active ingredients.</p>
+
+  <div class="mode-cards">
+    <div class="mode-card selected" id="card-label" onclick="selectMode('label')">
+      <div class="mc-icon">💊</div>
+      <div class="mc-label">LABEL<br>SCAN</div>
+    </div>
+    <div class="mode-card" id="card-invoice" onclick="selectMode('invoice')">
+      <div class="mc-icon">🧾</div>
+      <div class="mc-label">INVOICE<br>SCAN</div>
+    </div>
+  </div>
+
+<button id="start-btn" onclick="startScanner()">START CAMERA</button>
+
+</div>
+
+<!-- CAMERA -->
+
+<div id="cam-wrap">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas"></canvas>
+</div>
+<div id="flash"></div>
+
+<!-- HEADER -->
+
+<div id="header">
+  <div id="logo">IngredientLens</div>
+  <div id="mode-badge" onclick="toggleMode()">— MODE</div>
+  <div id="status-dot"></div>
+</div>
+
+<!-- OVERLAYS -->
+
+<div id="scan-overlay">
+  <div class="corner tl"></div><div class="corner tr"></div>
+  <div class="corner bl"></div><div class="corner br"></div>
+  <div id="scan-line"></div>
+</div>
+<div id="receipt-overlay"></div>
+
+<!-- LOADING -->
+
+<div id="loading-wrap">
+  <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+    <circle cx="24" cy="24" r="20" stroke="#1c2440" stroke-width="3"/>
+    <path d="M24 4 A20 20 0 0 1 44 24" stroke="#4f8ef7" stroke-width="3" stroke-linecap="round"/>
+  </svg>
+  <div id="loading-text">ANALYZING...</div>
+</div>
+
+<div id="hint">POINT AT A LABEL OR INVOICE</div>
+<div id="error-toast"></div>
+
+<!-- SCAN BUTTON -->
+
+<button id="scan-btn" onclick="captureAndAnalyze()">
+  <svg viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="15" cy="15" r="11" stroke="white" stroke-width="2"/>
+    <circle cx="15" cy="15" r="6" fill="white"/>
+  </svg>
+</button>
+
+<!-- RESULTS -->
+
+<div id="results-panel">
+  <div id="results-header">
+    <div id="results-label">Active Ingredients</div>
+    <div id="drug-count"></div>
+  </div>
+  <div id="ingredients-list"></div>
+</div>
+
+<script>
+  // ── CONFIG ──────────────────────────────────────────────
+  // Key is NEVER hardcoded — stored only in device localStorage
+  let GEMINI_API_KEY = localStorage.getItem('gl_key') || '';
+  // gemini-1.5-flash = best free-tier model (15 req/min, works globally)
+  const GEMINI_URL = () => `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+  // ────────────────────────────────────────────────────────
+
+  let mode = 'label';
+  let isAnalyzing = false;
+  let errorToastTimer = null;
+
+  const video       = document.getElementById('video');
+  const canvas      = document.getElementById('canvas');
+  const ctx         = canvas.getContext('2d');
+  const statusDot   = document.getElementById('status-dot');
+  const scanOverlay = document.getElementById('scan-overlay');
+  const recvOverlay = document.getElementById('receipt-overlay');
+  const resultsPanel= document.getElementById('results-panel');
+  const ingList     = document.getElementById('ingredients-list');
+  const loadWrap    = document.getElementById('loading-wrap');
+  const hint        = document.getElementById('hint');
+  const flash       = document.getElementById('flash');
+  const modeBadge   = document.getElementById('mode-badge');
+  const drugCount   = document.getElementById('drug-count');
+  const scanBtn     = document.getElementById('scan-btn');
+  const errorToast  = document.getElementById('error-toast');
+
+  function saveKey() {
+    const k = document.getElementById('key-input').value.trim();
+    if (!k.startsWith('AIza') || k.length < 20) {
+      document.getElementById('key-input').style.borderColor = 'var(--warn)';
+      return;
+    }
+    GEMINI_API_KEY = k;
+    localStorage.setItem('gl_key', k);
+    document.getElementById('key-screen').style.display = 'none';
+    document.getElementById('start-screen').style.display = 'flex';
+  }
+
+  // Show key screen if no key saved, else go straight to start
+  window.addEventListener('DOMContentLoaded', () => {
+    if (!GEMINI_API_KEY) {
+      document.getElementById('key-screen').style.display = 'flex';
+      document.getElementById('start-screen').style.display = 'none';
+    }
+  });
+
+  function selectMode(m) {
+    mode = m;
+    document.getElementById('card-label').classList.toggle('selected', m === 'label');
+    document.getElementById('card-invoice').classList.toggle('selected', m === 'invoice');
+  }
+
+  function toggleMode() {
+    if (!scanning) return;
+    mode = mode === 'label' ? 'invoice' : 'label';
+    applyModeUI();
+    resultsPanel.classList.remove('visible');
+    hint.classList.add('visible');
+  }
+
+  function applyModeUI() {
+    if (mode === 'label') {
+      scanOverlay.classList.add('visible');
+      recvOverlay.classList.remove('visible');
+      modeBadge.textContent = 'LABEL MODE';
+    } else {
+      recvOverlay.classList.add('visible');
+      scanOverlay.classList.remove('visible');
+      modeBadge.textContent = 'INVOICE MODE';
+    }
+  }
+
+  async function startScanner() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      video.srcObject = stream;
+      await video.play();
+      document.getElementById('start-screen').style.display = 'none';
+      applyModeUI();
+      statusDot.classList.add('active');
+      hint.classList.add('visible');
+      scanBtn.style.display = 'flex';
+    } catch (e) {
+      alert('Camera access denied. Please allow camera permissions and reload.');
+    }
+  }
+
+  async function captureAndAnalyze() {
+    if (isAnalyzing) return;
+    isAnalyzing = true;
+    scanBtn.style.pointerEvents = 'none';
+
+    // Capture frame
+    canvas.width  = video.videoWidth  || 640;
+    canvas.height = video.videoHeight || 480;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const base64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+
+    // Flash effect
+    flash.classList.remove('flash'); void flash.offsetWidth; flash.classList.add('flash');
+
+    // UI: analyzing state
+    statusDot.className = 'loading';
+    loadWrap.classList.add('visible');
+    hint.classList.remove('visible');
+    scanBtn.classList.add('scanning');
+
+    const prompt = mode === 'invoice'
+      ? `This image shows a pharmacy receipt or invoice listing drug/medication names with prices.
+
+For EACH drug product listed, use your pharmacological knowledge to identify its active ingredient(s). The receipt does NOT list ingredients — derive them from the drug name.
+
+Reply ONLY with a raw JSON array (no markdown fences, no explanation):
+[
+  {
+    "drug": "Drug name exactly as printed",
+    "price": "price if visible or null",
+    "activeIngredients": [
+      {
+        "name": "Active ingredient INN name",
+        "dose": "strength/dose if known or null",
+        "purpose": "what it treats, one sentence",
+        "flag": false
+      }
+    ]
+  }
+]
+
+Set flag=true for: controlled substances, anticoagulants, immunosuppressants, NSAIDs, or strong allergens.
+If no drug list / receipt is visible, return [].`
+      : `This image shows a drug, supplement, or product label.
+
+Extract only the ACTIVE INGREDIENTS section.
+
+Reply ONLY with a raw JSON array (no markdown fences, no explanation):
+[
+  {
+    "name": "Ingredient name",
+    "amount": "dose/concentration or null",
+    "purpose": "one sentence function",
+    "flag": false
+  }
+]
+
+Set flag=true for controlled substances, allergens, or high-risk ingredients.
+If no label is visible, return [].`;
+
+    try {
+      let res, attempts = 0;
+      while (attempts < 3) {
+        res = await fetch(GEMINI_URL(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { inline_data: { mime_type: 'image/jpeg', data: base64 } },
+                { text: prompt }
+              ]
+            }],
+            generationConfig: { temperature: 0.1, maxOutputTokens: 1500 }
+          })
+        });
+        if (res.status === 429) {
+          attempts++;
+          const wait = attempts * 8000;
+          showError(`Rate limit — retrying in ${wait/1000}s (${attempts}/3)...`);
+          await new Promise(r => setTimeout(r, wait));
+          continue;
+        }
+        break;
+      }
+
+      if (!res.ok) {
+        const err = await res.json();
+        const msg = err.error?.message || `HTTP ${res.status}`;
+        if (msg.includes('quota') || msg.includes('limit')) {
+          throw new Error('Quota exceeded. Wait 1 min then try again.');
+        }
+        throw new Error(msg);
+      }
+
+      const data = await res.json();
+      const raw  = data.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+      const clean = raw.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(clean);
+
+      mode === 'invoice' ? renderInvoice(parsed) : renderLabel(parsed);
+
+    } catch (err) {
+      console.error('Gemini error:', err);
+      showError(err.message || 'Scan failed');
+    }
+
+    statusDot.className = 'active';
+    loadWrap.classList.remove('visible');
+    isAnalyzing = false;
+    scanBtn.classList.remove('scanning');
+    scanBtn.style.pointerEvents = 'auto';
+  }
+
+  function showError(msg) {
+    errorToast.textContent = '⚠ ' + msg;
+    errorToast.classList.add('visible');
+    statusDot.className = 'error';
+    clearTimeout(errorToastTimer);
+    errorToastTimer = setTimeout(() => {
+      errorToast.classList.remove('visible');
+    }, 8000);
+  }
+
+  /* ── RENDER: INVOICE ── */
+  function renderInvoice(drugs) {
+    if (!drugs || drugs.length === 0) {
+      resultsPanel.classList.remove('visible');
+      hint.classList.add('visible');
+      return;
+    }
+    hint.classList.remove('visible');
+    ingList.innerHTML = '';
+    drugCount.textContent = `${drugs.length} DRUG${drugs.length !== 1 ? 'S' : ''}`;
+
+    drugs.forEach((drug, i) => {
+      const g = document.createElement('div');
+      g.className = 'drug-group';
+      g.style.animationDelay = `${i * 70}ms`;
+
+      const ings = (drug.activeIngredients || []).map(ing => `
+        <div class="active-ing">
+          <div class="ing-dot${ing.flag ? ' warn' : ''}"></div>
+          <div class="ing-text">
+            <div class="ing-name-text">
+              ${ing.name}
+              ${ing.flag ? '<span style="font-size:10px;color:var(--warn);margin-left:4px">⚠</span>' : ''}
+            </div>
+            <div class="ing-desc">${ing.purpose || ''}</div>
+            ${ing.dose ? `<div class="ing-dose">${ing.dose}</div>` : ''}
+          </div>
+        </div>`).join('');
+
+      g.innerHTML = `
+        <div class="drug-header">
+          <div class="drug-name">${drug.drug}</div>
+          ${drug.price ? `<div class="drug-price">${drug.price}</div>` : ''}
+        </div>
+        <div class="drug-ingredients">
+          ${ings || '<div style="font-size:11px;color:var(--muted)">Unknown active ingredient</div>'}
+        </div>`;
+      ingList.appendChild(g);
+    });
+
+    resultsPanel.classList.add('visible');
+  }
+
+  /* ── RENDER: LABEL ── */
+  function renderLabel(list) {
+    if (!list || list.length === 0) {
+      resultsPanel.classList.remove('visible');
+      hint.classList.add('visible');
+      return;
+    }
+    hint.classList.remove('visible');
+    ingList.innerHTML = '';
+    drugCount.textContent = `${list.length} INGREDIENT${list.length !== 1 ? 'S' : ''}`;
+
+    list.forEach((ing, i) => {
+      const card = document.createElement('div');
+      card.className = 'ingredient-card' + (ing.flag ? ' warn' : '');
+      card.style.animationDelay = `${i * 60}ms`;
+      card.innerHTML = `
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="ing-name-l">${ing.name}</div>
+          ${ing.flag ? '<span style="font-size:10px;color:var(--warn);font-family:Space Mono,monospace">⚠ FLAG</span>' : ''}
+        </div>
+        <div class="ing-detail-l">${ing.purpose || ''}</div>
+        ${ing.amount ? `<div class="ing-amount-l">${ing.amount}</div>` : ''}`;
+      ingList.appendChild(card);
+    });
+
+    resultsPanel.classList.add('visible');
+  }
+</script>
+
+</body>
+</html>
